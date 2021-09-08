@@ -28,15 +28,16 @@ const FILE = tempy.file();
 const isFeature = (s) => /feat(\(\w+\))?:/.test(s);
 /** Tests for commit types that don’t need adding to the CHANGELOG (like `docs` or `chore`). */
 const isUninformative = (s) =>
-  /(test|style|chore|docs|ci)(\([\w-]+\))?:/.test(s);
+  /(test|style|chore|docs|ci)(\([\w-]*\))?:/.test(s);
 /** Tests if this commit just bumped the version (via `npm version`). */
-const isVersionBump = (s) => /^\w{8} \d+\.\d+\.\d+$/.test(s);
+const isVersionBump = (s) => /^\w+\s\d+\.\d+\.\d+$/.test(s);
 
 const changes = shell
   .exec(`git log --oneline "${PREVIOUS_TAG}"..`)
   .split(EOL)
-  .filter((line) => !isUninformative(line) && !isVersionBump(line));
-
+  .filter(
+    (line) => line.length > 0 && !isUninformative(line) && !isVersionBump(line)
+  );
 /**
  * Format an array of commit details and concatenate into a string.
  * @param {string[]} changes
@@ -48,7 +49,7 @@ const formatChanges = (changes) =>
         // Strip standalone commit types ('feat:', 'fix:', etc.)
         .replace(/[a-z]+: /, '')
         // Format scoped commit types ('feat(foo):' => 'foo:', etc.)
-        .replace(/[a-z]+\((\w+)\)/, '$1')
+        .replace(/[a-z]+\(([\w-]+)\)/, '$1')
         // Linkify commit refs.
         .replace(
           /^(\w{8})/,
@@ -63,7 +64,9 @@ const formatChanges = (changes) =>
     .join(EOL);
 
 const features = formatChanges(changes.filter((line) => isFeature(line)));
-const others = formatChanges(changes.filter((line) => !isFeature(line)));
+const others = formatChanges(
+  changes.filter((line) => !isVersionBump(line) && !isFeature(line))
+);
 
 let NOTES = (IS_MAJOR ? '## ' : '### ') + CURRENT_TAG + P;
 if (features.length > 0) NOTES += '#### Features' + P + features + P;
